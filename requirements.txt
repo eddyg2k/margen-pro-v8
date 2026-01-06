@@ -3,4 +3,7 @@ pandas
 openpyxl
 plotly
 xlrd
-
+matplotlib
+seaborn
+numpy
+scipy
