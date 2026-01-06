@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import io
@@ -95,10 +96,63 @@ h1, h2, h3, h4, h5, h6 {
 # =========================================================
 # CORE LOGIC
 # =========================================================
+
 def clean_currency(x):
+    """Normalize a currency-like value into a numeric-friendly value.
+
+    - Handles pandas/Numpy missing values (pd.NA, np.nan)
+    - Decodes bytes
+    - Strips common currency symbols and grouping commas
+    - Handles negatives in parentheses (e.g. (1,234.56))
+    - Returns a float when parseable, np.nan for empty/missing, or the cleaned string as a fallback
+    """
+    # Preserve pandas/Numpy NA
+    try:
+        if pd.isna(x):
+            return np.nan
+    except Exception:
+        pass
+
+    # Decode bytes if necessary
+    if isinstance(x, (bytes, bytearray)):
+        try:
+            x = x.decode('utf-8')
+        except Exception:
+            x = x.decode('latin1', errors='ignore')
+
+    # If it's a string, normalize
     if isinstance(x, str):
-        return x.replace('$', '').replace(',', '').strip()
+        s = x.strip()
+        if s == '':
+            return np.nan
+
+        negative = False
+        if s.startswith('(') and s.endswith(')'):
+            negative = True
+            s = s[1:-1].strip()
+
+        # Remove common currency/grouping characters
+        for ch in ['$', '€', '£', ',', '%', '\xa0']:
+            s = s.replace(ch, '')
+
+        # Normalize unicode minus
+        s = s.replace('−', '-')
+        s = s.strip()
+
+        if s in ['', '--', '-']:
+            return np.nan
+
+        # Try to parse as float
+        try:
+            val = float(s)
+            return -val if negative else val
+        except Exception:
+            # Leave as cleaned string; pd.to_numeric(..., errors='coerce') will handle it later
+            return s
+
+    # For numeric types, return unchanged
     return x
+
 
 def load_data(uploaded_files):
     all_data = []
